@@ -5,6 +5,8 @@ services:
     container_name: finance-google-sheets-bot
     env_file:
       - ./bot/.env
+    extra_hosts:
+      - "api.telegram.org:149.154.167.220"
     restart: unless-stopped
     volumes:
       - ./bot/service-account.json:/app/bot/service-account.json:ro
