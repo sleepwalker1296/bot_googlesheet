@@ -143,6 +143,34 @@ docker run --rm --env-file .env -v ${PWD}\service-account.json:/app/bot/service-
 
 Если JSON-файл называется иначе, измените путь в `GOOGLE_SERVICE_ACCOUNT_JSON` и volume.
 
+## 7. Запуск на VPS через Docker Compose
+
+На сервере в корне проекта должны лежать секретные файлы, которые не хранятся в GitHub:
+
+```text
+bot/.env
+bot/service-account.json
+```
+
+В `bot/.env` для compose удобно указать:
+
+```env
+GOOGLE_SERVICE_ACCOUNT_JSON=service-account.json
+```
+
+Запуск из корня проекта:
+
+```bash
+docker compose up -d --build
+docker compose logs -f finance-bot
+```
+
+Остановка:
+
+```bash
+docker compose down
+```
+
 ## Листы Google Sheets
 
 При запуске бот проверяет, что в Google Таблице уже есть три листа клиента:

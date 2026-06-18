@@ -1,0 +1,10 @@
+services:
+  finance-bot:
+    build:
+      context: ./bot
+    container_name: finance-google-sheets-bot
+    env_file:
+      - ./bot/.env
+    restart: unless-stopped
+    volumes:
+      - ./bot/service-account.json:/app/bot/service-account.json:ro
