@@ -13,6 +13,7 @@ CONFIRM_SAVE = "confirm:save"
 CONFIRM_EDIT = "confirm:edit"
 CONFIRM_CANCEL = "confirm:cancel"
 COMMENT_SKIP = "comment:skip"
+NAV_BACK = "nav:back"
 
 ACCOUNTS = (
     "РС тинькоф",
@@ -69,47 +70,66 @@ def operation_type_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def accounts_keyboard(prefix: str) -> InlineKeyboardMarkup:
+def accounts_keyboard(prefix: str, with_back: bool = True) -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton(text=account, callback_data=f"{prefix}:{index}")]
         for index, account in enumerate(ACCOUNTS)
     ]
+    if with_back:
+        rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data=NAV_BACK)])
     rows.append([InlineKeyboardButton(text="❌ Отмена", callback_data=CONFIRM_CANCEL)])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def categories_keyboard(operation_type: str) -> InlineKeyboardMarkup:
+def categories_keyboard(operation_type: str, with_back: bool = True) -> InlineKeyboardMarkup:
     categories = EXPENSE_CATEGORIES if operation_type == OPERATION_EXPENSE else INCOME_CATEGORIES
-    return _indexed_keyboard(categories, "category")
+    return _indexed_keyboard(categories, "category", with_back=with_back)
 
 
-def transfer_categories_keyboard() -> InlineKeyboardMarkup:
-    return _indexed_keyboard(TRANSFER_CATEGORIES, "transfer_category")
+def transfer_categories_keyboard(with_back: bool = True) -> InlineKeyboardMarkup:
+    return _indexed_keyboard(TRANSFER_CATEGORIES, "transfer_category", with_back=with_back)
 
 
-def comment_keyboard() -> InlineKeyboardMarkup:
+def input_step_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📝 Без комментария", callback_data=COMMENT_SKIP)],
+            [InlineKeyboardButton(text="⬅️ Назад", callback_data=NAV_BACK)],
             [InlineKeyboardButton(text="❌ Отмена", callback_data=CONFIRM_CANCEL)],
         ]
     )
 
 
-def confirm_keyboard() -> InlineKeyboardMarkup:
+def comment_keyboard(with_back: bool = True) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(text="📝 Без комментария", callback_data=COMMENT_SKIP)],
+    ]
+    if with_back:
+        rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data=NAV_BACK)])
+    rows.append([InlineKeyboardButton(text="❌ Отмена", callback_data=CONFIRM_CANCEL)])
     return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="✅ Подтвердить", callback_data=CONFIRM_SAVE)],
-            [InlineKeyboardButton(text="✏️ Изменить", callback_data=CONFIRM_EDIT)],
-            [InlineKeyboardButton(text="❌ Отменить", callback_data=CONFIRM_CANCEL)],
-        ]
+        inline_keyboard=rows,
     )
 
 
-def _indexed_keyboard(items: tuple[str, ...], prefix: str) -> InlineKeyboardMarkup:
+def confirm_keyboard(with_back: bool = True) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(text="✅ Подтвердить", callback_data=CONFIRM_SAVE)],
+        [InlineKeyboardButton(text="✏️ Изменить", callback_data=CONFIRM_EDIT)],
+    ]
+    if with_back:
+        rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data=NAV_BACK)])
+    rows.append([InlineKeyboardButton(text="❌ Отменить", callback_data=CONFIRM_CANCEL)])
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows,
+    )
+
+
+def _indexed_keyboard(items: tuple[str, ...], prefix: str, with_back: bool = True) -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton(text=item, callback_data=f"{prefix}:{index}")]
         for index, item in enumerate(items)
     ]
+    if with_back:
+        rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data=NAV_BACK)])
     rows.append([InlineKeyboardButton(text="❌ Отмена", callback_data=CONFIRM_CANCEL)])
     return InlineKeyboardMarkup(inline_keyboard=rows)

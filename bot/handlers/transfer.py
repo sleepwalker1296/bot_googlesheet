@@ -10,16 +10,19 @@ from bot.keyboards import (
     COMMENT_SKIP,
     CONFIRM_EDIT,
     CONFIRM_SAVE,
+    NAV_BACK,
     TRANSFER_CATEGORIES,
     accounts_keyboard,
     comment_keyboard,
     confirm_keyboard,
+    input_step_keyboard,
     main_menu_keyboard,
+    operation_type_keyboard,
     transfer_categories_keyboard,
 )
 from bot.services.google_sheets import GoogleSheetsService, TransferRecord, UserInfo
 from bot.services.validators import format_amount, parse_amount
-from bot.states import TransferStates
+from bot.states import OperationStates, TransferStates
 
 
 router = Router(name="transfer")
@@ -56,7 +59,8 @@ async def choose_to_account(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.message.edit_text(
         f"<b>Счет пополнения</b>\n\n"
         f"Зачисляем на: {escape(account)}\n\n"
-        "Введите сумму перевода. Например: <code>12500</code> или <code>12 500,50</code>."
+        "Введите сумму перевода. Например: <code>12500</code> или <code>12 500,50</code>.",
+        reply_markup=input_step_keyboard(),
     )
     await callback.answer()
 
@@ -68,7 +72,8 @@ async def enter_transfer_amount(message: Message, state: FSMContext) -> None:
         await message.answer(
             "Не получилось распознать сумму.\n\n"
             "Введите число больше 0. Подойдут форматы: <code>1250</code>, <code>1 250</code>, "
-            "<code>1250.50</code>, <code>1250,50</code>."
+            "<code>1250.50</code>, <code>1250,50</code>.",
+            reply_markup=input_step_keyboard(),
         )
         return
 
@@ -93,6 +98,80 @@ async def choose_transfer_category(callback: CallbackQuery, state: FSMContext) -
     await callback.message.edit_text(
         f"<b>Тип перевода выбран</b>\n\n"
         f"{escape(category)}\n\n"
+        "Можно добавить комментарий, например куда переложили деньги или зачем. "
+        "Если не нужно, нажмите «Без комментария».",
+        reply_markup=comment_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(TransferStates.from_account, F.data == NAV_BACK)
+async def back_from_transfer_from_account(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(OperationStates.operation_type)
+    await callback.message.edit_text(
+        "<b>Новая операция</b>\n\n"
+        "Что нужно записать?",
+        reply_markup=operation_type_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(TransferStates.to_account, F.data == NAV_BACK)
+async def back_from_transfer_to_account(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(TransferStates.from_account)
+    await callback.message.edit_text(
+        "<b>Перевод между счетами</b>\n\n"
+        "С какого счета списать деньги?",
+        reply_markup=accounts_keyboard("from_account"),
+    )
+    await callback.answer()
+
+
+@router.callback_query(TransferStates.amount, F.data == NAV_BACK)
+async def back_from_transfer_amount(callback: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    from_account = data.get("from_account", "не выбран")
+    await state.set_state(TransferStates.to_account)
+    await callback.message.edit_text(
+        f"<b>Счет списания</b>\n\n"
+        f"Списываем с: {escape(from_account)}\n\n"
+        "Теперь выберите счет пополнения:",
+        reply_markup=accounts_keyboard("to_account"),
+    )
+    await callback.answer()
+
+
+@router.callback_query(TransferStates.transfer_category, F.data == NAV_BACK)
+async def back_from_transfer_category(callback: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    to_account = data.get("to_account", "не выбран")
+    await state.set_state(TransferStates.amount)
+    await callback.message.edit_text(
+        f"<b>Счет пополнения</b>\n\n"
+        f"Зачисляем на: {escape(to_account)}\n\n"
+        "Введите сумму перевода. Например: <code>12500</code> или <code>12 500,50</code>.",
+        reply_markup=input_step_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(TransferStates.comment, F.data == NAV_BACK)
+async def back_from_transfer_comment(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(TransferStates.transfer_category)
+    await callback.message.edit_text(
+        "Выберите тип перевода:",
+        reply_markup=transfer_categories_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(TransferStates.confirm, F.data == NAV_BACK)
+async def back_from_transfer_confirm(callback: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    await state.set_state(TransferStates.comment)
+    await callback.message.edit_text(
+        f"<b>Тип перевода выбран</b>\n\n"
+        f"{escape(data['category'])}\n\n"
         "Можно добавить комментарий, например куда переложили деньги или зачем. "
         "Если не нужно, нажмите «Без комментария».",
         reply_markup=comment_keyboard(),

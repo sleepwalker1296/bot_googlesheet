@@ -14,6 +14,7 @@ from bot.keyboards import (
     CONFIRM_SAVE,
     EXPENSE_CATEGORIES,
     INCOME_CATEGORIES,
+    NAV_BACK,
     OPERATION_EXPENSE,
     OPERATION_INCOME,
     OPERATION_TRANSFER,
@@ -21,6 +22,7 @@ from bot.keyboards import (
     categories_keyboard,
     comment_keyboard,
     confirm_keyboard,
+    input_step_keyboard,
     main_menu_keyboard,
     operation_type_keyboard,
 )
@@ -79,9 +81,9 @@ async def choose_source(callback: CallbackQuery, state: FSMContext) -> None:
         "Введите сумму сообщением. Например: <code>12500</code> или <code>12 500,50</code>."
     )
     if callback.message.photo:
-        await callback.message.edit_caption(caption=text, reply_markup=None)
+        await callback.message.edit_caption(caption=text, reply_markup=input_step_keyboard())
     else:
-        await callback.message.edit_text(text)
+        await callback.message.edit_text(text, reply_markup=input_step_keyboard())
     await callback.answer()
 
 
@@ -92,7 +94,8 @@ async def enter_amount(message: Message, state: FSMContext) -> None:
         await message.answer(
             "Не получилось распознать сумму.\n\n"
             "Введите число больше 0. Подойдут форматы: <code>1250</code>, <code>1 250</code>, "
-            "<code>1250.50</code>, <code>1250,50</code>."
+            "<code>1250.50</code>, <code>1250,50</code>.",
+            reply_markup=input_step_keyboard(),
         )
         return
 
@@ -121,6 +124,69 @@ async def choose_category(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.message.edit_text(
         f"<b>Категория выбрана</b>\n\n"
         f"{escape(category)}\n\n"
+        "Можно добавить короткий комментарий: поставщик, номер заказа, причина платежа. "
+        "Если не нужно, нажмите «Без комментария».",
+        reply_markup=comment_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(OperationStates.source, F.data == NAV_BACK)
+async def back_from_operation_source(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(OperationStates.operation_type)
+    await _edit_message(
+        callback,
+        "<b>Новая операция</b>\n\n"
+        "Что нужно записать?",
+        operation_type_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(OperationStates.amount, F.data == NAV_BACK)
+async def back_from_operation_amount(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(OperationStates.source)
+    await _edit_message(
+        callback,
+        "Выберите счет, по которому проходит операция:",
+        accounts_keyboard("source"),
+    )
+    await callback.answer()
+
+
+@router.callback_query(OperationStates.category, F.data == NAV_BACK)
+async def back_from_operation_category(callback: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    await state.set_state(OperationStates.amount)
+    source = data.get("source", "не выбран")
+    await callback.message.edit_text(
+        "<b>Счет выбран</b>\n\n"
+        f"Источник: {escape(source)}\n\n"
+        "Введите сумму сообщением. Например: <code>12500</code> или <code>12 500,50</code>.",
+        reply_markup=input_step_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(OperationStates.comment, F.data == NAV_BACK)
+async def back_from_operation_comment(callback: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    operation_type = data["operation_type"]
+    await state.set_state(OperationStates.category)
+    await callback.message.edit_text(
+        "Выберите категорию:",
+        reply_markup=categories_keyboard(operation_type),
+    )
+    await callback.answer()
+
+
+@router.callback_query(OperationStates.confirm, F.data == NAV_BACK)
+async def back_from_operation_confirm(callback: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    await state.set_state(OperationStates.comment)
+    await callback.message.edit_text(
+        f"<b>Категория выбрана</b>\n\n"
+        f"{escape(data['category'])}\n\n"
         "Можно добавить короткий комментарий: поставщик, номер заказа, причина платежа. "
         "Если не нужно, нажмите «Без комментария».",
         reply_markup=comment_keyboard(),
@@ -232,6 +298,13 @@ def _operation_image_file(operation_type: str):
     if operation_type == OPERATION_EXPENSE:
         return settings.expense_image_file
     return None
+
+
+async def _edit_message(callback: CallbackQuery, text: str, reply_markup) -> None:
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=reply_markup)
+    else:
+        await callback.message.edit_text(text, reply_markup=reply_markup)
 
 
 def _user_info(user: User) -> UserInfo:
